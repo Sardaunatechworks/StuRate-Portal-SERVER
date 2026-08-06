@@ -1,0 +1,174 @@
+// Prisma Schema for Student Rating Teachers' Effectiveness System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("STUDENT")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  student      Student?
+  lecturer     Lecturer?
+
+  @@map("users")
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  code        String     @unique
+  name        String
+  description String?
+  createdAt   DateTime   @default(now())
+
+  students    Student[]
+  lecturers   Lecturer[]
+  courses     Course[]
+
+  @@map("departments")
+}
+
+model Student {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  studentId    String     @unique // e.g., FCP/CIT/22/1001
+  level        Int        @default(100) // 100, 200, 300, 400, 500
+  departmentId String
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  
+  enrollments  StudentEnrollment[]
+  evaluations  Evaluation[]
+
+  @@map("students")
+}
+
+model Lecturer {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  staffId      String     @unique // e.g., FUD/LR/CSC/001
+  title        String     @default("Dr.") // Dr., Prof., Mr., Mrs.
+  departmentId String
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  courseAssignments CourseAssignment[]
+
+  @@map("lecturers")
+}
+
+model Course {
+  id           String     @id @default(uuid())
+  code         String     @unique // e.g., CSC401
+  title        String
+  creditUnit   Int        @default(3)
+  departmentId String
+
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assignments  CourseAssignment[]
+
+  @@map("courses")
+}
+
+model CourseAssignment {
+  id              String   @id @default(uuid())
+  courseId        String
+  lecturerId      String
+  academicSession String   // e.g., 2025/2026
+  semester        String   @default("FIRST")
+  createdAt       DateTime @default(now())
+
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lecturer        Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+
+  enrollments     StudentEnrollment[]
+  evaluations     Evaluation[]
+
+  @@unique([courseId, lecturerId, academicSession, semester])
+  @@map("course_assignments")
+}
+
+model StudentEnrollment {
+  id                 String           @id @default(uuid())
+  studentId          String
+  courseAssignmentId String
+  academicSession    String
+  semester           String           @default("FIRST")
+  createdAt          DateTime         @default(now())
+
+  student            Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseAssignment   CourseAssignment @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseAssignmentId])
+  @@map("student_enrollments")
+}
+
+model EvaluationPeriod {
+  id              String       @id @default(uuid())
+  title           String       // e.g., "2025/2026 First Semester Evaluation"
+  academicSession String
+  semester        String       @default("FIRST")
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  evaluations     Evaluation[]
+
+  @@map("evaluation_periods")
+}
+
+model EvaluationQuestion {
+  id           String             @id @default(uuid())
+  questionText String
+  category     String             // e.g., Subject Knowledge, Teaching Method
+  order        Int                @default(1)
+  isActive     Boolean            @default(true)
+
+  ratings      EvaluationRating[]
+
+  @@map("evaluation_questions")
+}
+
+model Evaluation {
+  id                 String             @id @default(uuid())
+  courseAssignmentId String
+  studentId          String?            // Nullable so deleting student record doesn't erase historical evaluation data
+  evaluationPeriodId String
+  comment            String?
+  createdAt          DateTime           @default(now())
+
+  courseAssignment   CourseAssignment   @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+  student            Student?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  evaluationPeriod   EvaluationPeriod   @relation(fields: [evaluationPeriodId], references: [id], onDelete: Cascade)
+
+  ratings            EvaluationRating[]
+
+  @@unique([studentId, courseAssignmentId, evaluationPeriodId])
+  @@map("evaluations")
+}
+
+model EvaluationRating {
+  id           String             @id @default(uuid())
+  evaluationId String
+  questionId   String
+  rating       Int                // 1, 2, 3, 4, 5
+
+  evaluation   Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  question     EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluationId, questionId])
+  @@map("evaluation_ratings")
+}
