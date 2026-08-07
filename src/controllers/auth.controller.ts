@@ -187,8 +187,35 @@ export const registerStudent = async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const parsedLevel = Number(level) || 100;
 
-    const { user, studentRecord } = await prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
+    let user;
+    let studentRecord;
+    try {
+      const res = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name: trimmedName,
+            email: trimmedEmail,
+            passwordHash,
+            role: 'STUDENT'
+          }
+        });
+
+        const newStudent = await tx.student.create({
+          data: {
+            userId: newUser.id,
+            studentId: trimmedStudentId,
+            departmentId: targetDepartmentId,
+            level: parsedLevel
+          }
+        });
+
+        return { user: newUser, studentRecord: newStudent };
+      });
+      user = res.user;
+      studentRecord = res.studentRecord;
+    } catch (txErr) {
+      console.warn('Transaction fallback triggered for student creation:', txErr);
+      user = await prisma.user.create({
         data: {
           name: trimmedName,
           email: trimmedEmail,
@@ -196,18 +223,16 @@ export const registerStudent = async (req: Request, res: Response) => {
           role: 'STUDENT'
         }
       });
-
-      const newStudent = await tx.student.create({
+      studentRecord = await prisma.student.create({
         data: {
-          userId: newUser.id,
+          userId: user.id,
           studentId: trimmedStudentId,
           departmentId: targetDepartmentId,
           level: parsedLevel
         }
       });
+    }
 
-      return { user: newUser, studentRecord: newStudent };
-    });
 
     const secret = process.env.JWT_SECRET || 'super-secret-student-rating-jwt-key-2026';
     const payload = {
