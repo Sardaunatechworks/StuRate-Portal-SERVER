@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { execSync } from 'child_process';
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import studentRoutes from './routes/student.routes';
@@ -39,6 +40,19 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 const initDatabase = async () => {
   try {
+    // 1. Verify if database tables exist, otherwise auto-run prisma db push
+    try {
+      await prisma.user.count();
+    } catch (dbError) {
+      console.log('Database tables missing. Automatically initializing schema via prisma db push...');
+      const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
+      execSync('npx prisma db push --accept-data-loss', {
+        stdio: 'inherit',
+        env: { ...process.env, DATABASE_URL: dbUrl }
+      });
+    }
+
+    // 2. Auto-seed default department data if empty
     const deptCount = await prisma.department.count().catch(() => 0);
     if (deptCount === 0) {
       console.log('Database empty. Auto-seeding initial department data...');
