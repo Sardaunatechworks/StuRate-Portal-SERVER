@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import { execSync } from 'child_process';
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
@@ -65,6 +66,22 @@ const initDatabase = async () => {
       for (const dept of defaultDepts) {
         await prisma.department.create({ data: dept }).catch(() => {});
       }
+    }
+
+    // 3. Auto-seed Super Admin account if no ADMIN user exists
+    const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } }).catch(() => 0);
+    if (adminCount === 0) {
+      console.log('No Admin user found. Creating initial Super Admin account...');
+      const adminPasswordHash = await bcrypt.hash('Password123!', 10);
+      await prisma.user.create({
+        data: {
+          email: 'superadmin@fud.edu.ng',
+          passwordHash: adminPasswordHash,
+          name: 'System Administrator',
+          role: 'ADMIN',
+        }
+      }).catch(() => {});
+      console.log('Super Admin account created: superadmin@fud.edu.ng');
     }
   } catch (err) {
     console.warn('Database initialization notice:', err);
