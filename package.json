@@ -13,13 +13,13 @@
     "prisma:seed": "npx ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.2",
+    "@prisma/client": "5.10.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "prisma": "^5.10.2",
+    "prisma": "5.10.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "zod": "^3.22.4"
