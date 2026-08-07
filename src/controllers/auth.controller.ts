@@ -168,53 +168,41 @@ export const registerStudent = async (req: Request, res: Response) => {
     }
 
     if (!departmentExists) {
+      departmentExists = await prisma.department.findFirst({
+        where: { code: 'CSC' }
+      });
+    }
+
+    if (!departmentExists) {
       departmentExists = await prisma.department.findFirst();
     }
 
     if (!departmentExists) {
-      // Auto-seed default department if database has no departments yet
-      departmentExists = await prisma.department.create({
-        data: {
+      // Auto-seed default department safely if database has no departments yet
+      departmentExists = await prisma.department.upsert({
+        where: { code: 'CSC' },
+        update: {},
+        create: {
           code: 'CSC',
           name: 'Computer Science',
           description: 'Department of Computer Science'
         }
+      }).catch(async () => {
+        return await prisma.department.findFirst();
       });
     }
 
-    const targetDepartmentId = departmentExists.id;
+    if (!departmentExists) {
+      return res.status(400).json({ message: 'No department found. Please refresh and select a department.' });
+    }
 
+    const targetDepartmentId = departmentExists.id;
     const passwordHash = await bcrypt.hash(password, 10);
     const parsedLevel = Number(level) || 100;
 
-    let user;
-    let studentRecord;
-    try {
-      const res = await prisma.$transaction(async (tx) => {
-        const newUser = await tx.user.create({
-          data: {
-            name: trimmedName,
-            email: trimmedEmail,
-            passwordHash,
-            role: 'STUDENT'
-          }
-        });
-
-        const newStudent = await tx.student.create({
-          data: {
-            userId: newUser.id,
-            studentId: trimmedStudentId,
-            departmentId: targetDepartmentId,
-            level: parsedLevel
-          }
-        });
-
-        return { user: newUser, studentRecord: newStudent };
-      });
-      user = res.user;
-      studentRecord = res.studentRecord;
-    } catch (txErr) {
-      console.warn('Transaction fallback triggered for student creation:', txErr);
+    // Create User record
+    let user = await prisma.user.findUnique({ where: { email: trimmedEmail } });
+    if (!user) {
       user = await prisma.user.create({
         data: {
           name: trimmedName,
@@ -223,6 +211,11 @@ export const registerStudent = async (req: Request, res: Response) => {
           role: 'STUDENT'
         }
       });
+    }
+
+    // Create Student record linked to User and Department
+    let studentRecord = await prisma.student.findUnique({ where: { studentId: trimmedStudentId } });
+    if (!studentRecord) {
       studentRecord = await prisma.student.create({
         data: {
           userId: user.id,
@@ -232,7 +225,6 @@ export const registerStudent = async (req: Request, res: Response) => {
         }
       });
     }
-
 
     const secret = process.env.JWT_SECRET || 'super-secret-student-rating-jwt-key-2026';
     const payload = {
@@ -252,7 +244,7 @@ export const registerStudent = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error during student registration:', error);
-    res.status(500).json({ message: 'Failed to create student account', error: error.message });
+    res.status(400).json({ message: error.message || 'Failed to create student account' });
   }
 };
 
@@ -297,5 +289,3 @@ export const getPublicDepartments = async (_req: Request, res: Response) => {
     ]);
   }
 };
-
-
