@@ -83,6 +83,45 @@ const initDatabase = async () => {
       }).catch(() => {});
       console.log('Super Admin account created: superadmin@fud.edu.ng');
     }
+
+    // 4. Auto-seed 9 Standard Evaluation Criteria Questions if empty
+    const questionCount = await prisma.evaluationQuestion.count().catch(() => 0);
+    if (questionCount === 0) {
+      console.log('No Evaluation Questions found. Auto-seeding 9 standard criteria questions...');
+      const questionsData = [
+        { questionText: 'Subject Knowledge: Displays deep understanding of the course topic.', category: 'Pedagogy', order: 1 },
+        { questionText: 'Teaching Method: Uses effective and engaging instructional techniques.', category: 'Pedagogy', order: 2 },
+        { questionText: 'Communication Skills: Explains complex concepts clearly and articulately.', category: 'Communication', order: 3 },
+        { questionText: 'Punctuality: Arrives on time for scheduled lectures and labs.', category: 'Professionalism', order: 4 },
+        { questionText: 'Course Organization: Delivers syllabus content in a structured manner.', category: 'Organization', order: 5 },
+        { questionText: 'Student Engagement: Encourages active classroom participation and questions.', category: 'Engagement', order: 6 },
+        { questionText: 'Fairness in Assessment: Evaluates tests and assignments objectively.', category: 'Assessment', order: 7 },
+        { questionText: 'Availability to Students: Accessible during office hours for consultation.', category: 'Support', order: 8 },
+        { questionText: 'Overall Satisfaction: Satisfied with the teacher\'s overall effectiveness.', category: 'General', order: 9 },
+      ];
+      for (const q of questionsData) {
+        await prisma.evaluationQuestion.create({ data: q }).catch(() => {});
+      }
+      console.log('Evaluation questions seeded successfully!');
+    }
+
+    // 5. Auto-seed Evaluation Period if empty
+    const periodCount = await prisma.evaluationPeriod.count().catch(() => 0);
+    if (periodCount === 0) {
+      console.log('No Evaluation Period found. Auto-creating active evaluation period...');
+      await prisma.evaluationPeriod.create({
+        data: {
+          title: '2025/2026 First Semester Evaluation Period',
+          academicSession: '2025/2026',
+          semester: 'FIRST',
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-12-31'),
+          isActive: true,
+        }
+      }).catch(() => {});
+      console.log('Active evaluation period created successfully!');
+    }
+
   } catch (err) {
     console.warn('Database initialization notice:', err);
   }
