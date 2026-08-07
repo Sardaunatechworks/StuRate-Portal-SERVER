@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
@@ -29,7 +29,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/lecturer', lecturerRoutes);
 app.use('/api', reportRoutes);
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'online',
     system: "Student Rating Teachers' Effectiveness System API",
@@ -42,14 +42,15 @@ const initDatabase = async () => {
     const deptCount = await prisma.department.count().catch(() => 0);
     if (deptCount === 0) {
       console.log('Database empty. Auto-seeding initial department data...');
-      await prisma.department.createMany({
-        data: [
-          { code: 'CSC', name: 'Computer Science', description: 'Department of Computer Science' },
-          { code: 'EEE', name: 'Electrical & Electronic Engineering', description: 'Department of Electrical & Electronic Engineering' },
-          { code: 'IT', name: 'Information Technology', description: 'Department of Information Technology' },
-          { code: 'CYS', name: 'Cyber Security', description: 'Department of Cyber Security' }
-        ]
-      }).catch(() => {});
+      const defaultDepts = [
+        { code: 'CSC', name: 'Computer Science', description: 'Department of Computer Science' },
+        { code: 'EEE', name: 'Electrical & Electronic Engineering', description: 'Department of Electrical & Electronic Engineering' },
+        { code: 'IT', name: 'Information Technology', description: 'Department of Information Technology' },
+        { code: 'CYS', name: 'Cyber Security', description: 'Department of Cyber Security' }
+      ];
+      for (const dept of defaultDepts) {
+        await prisma.department.create({ data: dept }).catch(() => {});
+      }
     }
   } catch (err) {
     console.warn('Database initialization notice:', err);
@@ -60,4 +61,3 @@ app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   await initDatabase();
 });
-
