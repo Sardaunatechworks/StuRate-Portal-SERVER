@@ -39,7 +39,7 @@ export class EvaluationService {
     }
 
     // Find course assignments matching student's department and current session/semester
-    const assignments = await prisma.courseAssignment.findMany({
+    let assignments = await prisma.courseAssignment.findMany({
       where: {
         academicSession: activePeriod.academicSession,
         semester: activePeriod.semester,
@@ -56,6 +56,45 @@ export class EvaluationService {
         course: true,
       },
     });
+
+    // Fallback 1: If no exact semester match, match any course assignment in the student's department for this academic session
+    if (assignments.length === 0) {
+      assignments = await prisma.courseAssignment.findMany({
+        where: {
+          academicSession: activePeriod.academicSession,
+          course: {
+            departmentId: student.departmentId,
+          },
+        },
+        include: {
+          lecturer: {
+            include: {
+              user: { select: { name: true, email: true } },
+            },
+          },
+          course: true,
+        },
+      });
+    }
+
+    // Fallback 2: If still none (e.g. academic session formatting difference), match all active assignments in student's department
+    if (assignments.length === 0) {
+      assignments = await prisma.courseAssignment.findMany({
+        where: {
+          course: {
+            departmentId: student.departmentId,
+          },
+        },
+        include: {
+          lecturer: {
+            include: {
+              user: { select: { name: true, email: true } },
+            },
+          },
+          course: true,
+        },
+      });
+    }
 
     // Find evaluations already completed by this student during this active period
     const completedEvaluations = await prisma.evaluation.findMany({
