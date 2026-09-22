@@ -49,6 +49,15 @@ export const errorHandler = (
     }
   }
 
+  // Handle Prisma connection/initialization error (e.g. Neon auto-suspend cold start)
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return sendError(
+      res,
+      'The cloud database is currently waking up or reconnecting. Please refresh or retry in a few moments.',
+      503
+    );
+  }
+
   // Fallback safe error
   const message =
     process.env.NODE_ENV === 'development' && err.message
