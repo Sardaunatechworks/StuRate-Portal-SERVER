@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import authRoutes from './auth.routes';
 import departmentRoutes from './department.routes';
 import courseRoutes from './course.routes';
@@ -16,7 +16,7 @@ import { prisma } from '../config/prisma';
 const apiRouter = Router();
 
 // Public platform analytics for landing page
-apiRouter.get('/analytics', async (_req, res) => {
+apiRouter.get('/analytics', async (_req: Request, res: Response) => {
   try {
     const [totalStudents, totalLecturers, totalCourses, totalEvaluations, ratingAgg] = await Promise.all([
       prisma.student.count(),
